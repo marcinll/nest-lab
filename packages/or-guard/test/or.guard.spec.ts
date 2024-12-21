@@ -1,8 +1,11 @@
 import { INestApplication } from '@nestjs/common';
-import { TestingModuleBuilder, Test } from '@nestjs/testing';
-import * as supertest from 'supertest';
+import { Test, TestingModuleBuilder } from '@nestjs/testing';
 import { of } from 'rxjs';
+import * as supertest from 'supertest';
 
+import { CanActivate } from '@nestjs/common';
+import { AndGuard } from '../src/lib/and.guard';
+import { OrGuard } from '../src/lib/or.guard';
 import { AppModule } from './app.module';
 import { ObsGuard } from './obs.guard';
 import { PromGuard } from './prom.guard';
@@ -219,7 +222,10 @@ describe('OrGuard and AndGuard Integration Test', () => {
               .expect(401)
               .expect(({ body }) => {
                 expect(body).toEqual(
-                  expect.objectContaining({ message: 'Should provide either "x-api-key" header or query' })
+                  expect.objectContaining({
+                    message:
+                      'Should provide either "x-api-key" header or query',
+                  })
                 );
               });
           });
@@ -239,7 +245,10 @@ describe('OrGuard and AndGuard Integration Test', () => {
               .expect(401)
               .expect(({ body }) => {
                 expect(body).toEqual(
-                  expect.objectContaining({ message: 'UnauthorizedException: ThrowGuard, UnauthorizedException: ThrowGuard' })
+                  expect.objectContaining({
+                    message:
+                      'UnauthorizedException: ThrowGuard, UnauthorizedException: ThrowGuard',
+                  })
                 );
               });
           });
@@ -263,6 +272,48 @@ describe('OrGuard and AndGuard Integration Test', () => {
     });
     it('should not throw an error if ran sequentially', async () => {
       return supertest(app.getHttpServer()).get('/set-user-pass').expect(200);
+    });
+  });
+
+  describe('Guard Name Generation', () => {
+    class TestGuard1 implements CanActivate {
+      canActivate() {
+        return true;
+      }
+    }
+
+    class TestGuard2 implements CanActivate {
+      canActivate() {
+        return true;
+      }
+    }
+
+    const TOKEN = 'TEST_TOKEN';
+
+    it('should generate correct name for OrGuard with class guards', () => {
+      const guard = OrGuard([TestGuard1, TestGuard2]);
+      expect(guard.name).toBe('OrGuard(TestGuard1TestGuard2)');
+    });
+
+    it('should generate correct name for OrGuard with token', () => {
+      const guard = OrGuard([TestGuard1, TOKEN]);
+      expect(guard.name).toBe('OrGuard(TestGuard1TEST_TOKEN)');
+    });
+
+    it('should generate correct name for AndGuard with class guards', () => {
+      const guard = AndGuard([TestGuard1, TestGuard2]);
+      expect(guard.name).toBe('AndGuard(TestGuard1TestGuard2)');
+    });
+
+    it('should generate correct name for AndGuard with token', () => {
+      const guard = AndGuard([TestGuard1, TOKEN]);
+      expect(guard.name).toBe('AndGuard(TestGuard1TEST_TOKEN)');
+    });
+
+    it('should handle unknown token types by generating uid', () => {
+      const symbolToken = Symbol('TEST');
+      const guard = OrGuard([TestGuard1, symbolToken]);
+      expect(guard.name).toMatch(/^OrGuard\(TestGuard1[a-zA-Z0-9]{21}\)$/);
     });
   });
 });

@@ -15,15 +15,17 @@ import {
   Observable,
   of,
   OperatorFunction,
+  pipe,
+  tap,
   throwError,
-  pipe, tap
 } from 'rxjs';
 import { catchError, last, mergeMap, takeWhile } from 'rxjs/operators';
+import { uid } from 'uid';
 
 interface OrGuardOptions {
   throwOnFirstError?: boolean;
   throwLastError?: boolean;
-  throwError?: object | ((errors: unknown[]) => unknown)
+  throwError?: object | ((errors: unknown[]) => unknown);
 }
 
 export function OrGuard(
@@ -49,11 +51,15 @@ export function OrGuard(
         concatMap(({ result }) => {
           if (result === false) {
             if (orGuardOptions?.throwLastError) {
-              return throwError(() => errors.at(-1))
+              return throwError(() => errors.at(-1));
             }
 
             if (orGuardOptions?.throwError) {
-              return throwError(() => typeof orGuardOptions.throwError === 'function' ? orGuardOptions.throwError(errors) : orGuardOptions.throwError)
+              return throwError(() =>
+                typeof orGuardOptions.throwError === 'function'
+                  ? orGuardOptions.throwError(errors)
+                  : orGuardOptions.throwError
+              );
             }
           }
 
@@ -78,7 +84,10 @@ export function OrGuard(
       });
     }
 
-    private handleError(): OperatorFunction<boolean, { result: boolean, error?: unknown }> {
+    private handleError(): OperatorFunction<
+      boolean,
+      { result: boolean; error?: unknown }
+    > {
       return pipe(
         catchError((error) => {
           if (orGuardOptions?.throwOnFirstError) {
@@ -86,7 +95,7 @@ export function OrGuard(
           }
           return of({ result: false, error });
         }),
-        map((result) => typeof result === 'boolean' ? { result } : result)
+        map((result) => (typeof result === 'boolean' ? { result } : result))
       );
     }
 
@@ -104,5 +113,18 @@ export function OrGuard(
   }
 
   const Guard = mixin(OrMixinGuard);
+  Object.defineProperty(Guard, 'name', {
+    value: `OrGuard(${guards
+      .map((g) => {
+        if (typeof g === 'function' || (typeof g === 'object' && 'name' in g)) {
+          return g.name;
+        }
+        if (typeof g === 'string') {
+          return g;
+        }
+        return uid(21);
+      })
+      .join('')})`,
+  });
   return Guard as Type<CanActivate>;
 }

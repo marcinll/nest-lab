@@ -15,7 +15,8 @@ import {
   OperatorFunction,
   throwError,
 } from 'rxjs';
-import { catchError, last, mergeMap, every, concatMap } from 'rxjs/operators';
+import { catchError, concatMap, every, last, mergeMap } from 'rxjs/operators';
+import { uid } from 'uid';
 
 interface AndGuardOptions {
   throwOnFirstError?: boolean;
@@ -84,5 +85,18 @@ export function AndGuard(
   }
 
   const Guard = mixin(AndMixinGuard);
+  Object.defineProperty(Guard, 'name', {
+    value: `AndGuard(${guards
+      .map((g) => {
+        if (typeof g === 'function' || (typeof g === 'object' && 'name' in g)) {
+          return g.name;
+        }
+        if (typeof g === 'string') {
+          return g;
+        }
+        return uid(21);
+      })
+      .join('')})`,
+  });
   return Guard as Type<CanActivate>;
 }
